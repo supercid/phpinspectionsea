@@ -164,6 +164,7 @@ Inspections Lists (Architecture)
 | Architecture         | MultipleReturnStatementsInspection              | Multiple return statements usage                    | n/a | yes | n/a  | yes |
 | Architecture         | EfferentObjectCouplingInspection                | Efferent coupling between objects                   | n/a | yes | n/a  | no  |
 | Architecture         | TransitiveDependenciesUsageInspection           | Transitive dependencies usage                       | n/a | yes | n/a  | yes |
+| Architecture         | CompositionAndInheritanceInspection             | Composition and inheritance                         | n/a | yes | n/a  | no  |
 
 Inspections Lists (Probable bugs)
 ---
@@ -196,7 +197,7 @@ Inspections Lists (Probable bugs)
 | Probable bugs        | IssetArgumentExistenceInspection                | Isset operations variables existence                      | n/a | yes | n/a  | no  |
 | Probable bugs        | TraitsPropertiesConflictsInspection             | Traits properties conflicts resolution                    | n/a | yes | n/a  | no  |
 | Probable bugs        | NullPointerExceptionInspection                  | Null reference                                            | n/a | yes | n/a  | yes |
-| Probable bugs        | MissingIssetImplementationInspection            | Empty/isset results correctness                           | n/a | yes | n/a  | no  |
+| Probable bugs        | MissingIssetImplementationInspection            | Empty/isset results correctness                           | n/a | yes | n/a  | yes |
 | Probable bugs        | CallableMethodValidityInspection                | Callable methods validity                                 | n/a | yes | n/a  | no  |
 | Probable bugs        | PassingByReferenceCorrectnessInspection         | Passing arguments by reference correctness                | n/a | yes | n/a  | no  |
 | Probable bugs        | MockingFinalClassesInspection                   | Mocking correctness                                       | n/a | yes | n/a  | no  |

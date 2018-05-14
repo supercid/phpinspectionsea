@@ -44,10 +44,9 @@ the implementation.
   <change-notes><![CDATA[
 New features release<br/>
 <br/>
-- Command execution as super user: implemented<br/>
-- Illusion of choice: resolved false-positives (multiple cases)<br/>
-- Missing directory separators: new patterns<br/>
-- Transitive dependencies usage: added configuration<br/>
+- CompositionAndInheritanceInspector: implemented<br/>
+- UnnecessaryEmptinessCheckInspector: new patterns<br/>
+- MissingDirectorySeparatorInspector: resolved false-positives (multiple cases)<br/>
 <br/>
 <hr/>
   ]]></change-notes>
@@ -184,7 +183,7 @@ New features release<br/>
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.strictInterfaces.ArrayTypeOfParameterByDefaultValueInspector"/>
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
         shortName="ForeachSourceInspection"                       displayName="Foreach source to iterate over"
-        groupName="Type compatibility"                            enabledByDefault="true" level="WARNING"
+        groupName="Type compatibility"                            enabledByDefault="false" level="WARNING"
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.forEach.ForeachSourceInspector"/>
 
 
@@ -218,7 +217,7 @@ New features release<br/>
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.forEach.DisconnectedForeachInstructionInspector"/>
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
         shortName="ExceptionsAnnotatingAndHandlingInspection"      displayName="Exceptions handling and annotating"
-        groupName="Control Flow"                                   enabledByDefault="true" level="WEAK WARNING"
+        groupName="Control Flow"                                   enabledByDefault="false" level="WEAK WARNING"
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.exceptions.ExceptionsAnnotatingAndHandlingInspector"/>
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
         shortName="DegradedSwitchInspection"                       displayName="Switch-case could be simplified"
@@ -860,7 +859,7 @@ New features release<br/>
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.codeStyle.BadExceptionsProcessingInspector"/>
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
         shortName="MoreThanThreeArgumentsInspection"                displayName="Too many parameters in a callable"
-        groupName="Architecture"                                    enabledByDefault="true" level="WARNING"
+        groupName="Architecture"                                    enabledByDefault="false" level="WARNING"
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.codeStyle.MoreThanThreeArgumentsInspector"/>
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
         shortName="CallableParameterUseCaseInTypeContextInspection" displayName="Callable parameter usage violates definition"
@@ -906,6 +905,10 @@ New features release<br/>
         shortName="TransitiveDependenciesUsageInspection"           displayName="Transitive dependencies usage"
         groupName="Architecture"                                    enabledByDefault="true" level="WARNING"
         implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.TransitiveDependenciesUsageInspector"/>
+    <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
+        shortName="CompositionAndInheritanceInspection"             displayName="Composition and inheritance"
+        groupName="Architecture"                                    enabledByDefault="false" level="WARNING"
+        implementationClass="com.kalessil.phpStorm.phpInspectionsEA.inspectors.semanticalAnalysis.classes.CompositionAndInheritanceInspector"/>
 
 
     <localInspection language="PHP" groupPath="PHP,Php Inspections (EA Ultimate)"
