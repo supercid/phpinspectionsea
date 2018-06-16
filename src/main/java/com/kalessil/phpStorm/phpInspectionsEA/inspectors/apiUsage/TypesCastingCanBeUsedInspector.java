@@ -6,10 +6,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
-import com.jetbrains.php.lang.psi.elements.BinaryExpression;
-import com.jetbrains.php.lang.psi.elements.FunctionReference;
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
-import com.jetbrains.php.lang.psi.elements.Variable;
+import com.jetbrains.php.lang.psi.elements.*;
 import com.kalessil.phpStorm.phpInspectionsEA.EAUltimateApplicationComponent;
 import com.kalessil.phpStorm.phpInspectionsEA.fixers.UseSuggestedReplacementFixer;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
@@ -97,10 +94,12 @@ public class TypesCastingCanBeUsedInspector extends BasePhpInspection {
                     } else {
                         final boolean isTarget = arguments.length == 1;
                         if (isTarget) {
+                            final boolean wrapArgument = arguments[0] instanceof BinaryExpression ||
+                                                         arguments[0] instanceof TernaryExpression;
                             final String replacement = String.format(
                                     "(%s) %s",
                                     functionsMapping.get(functionName),
-                                    arguments[0].getText()
+                                    String.format(wrapArgument ? "(%s)" : "%s", arguments[0].getText())
                             );
                             holder.registerProblem(
                                     reference,
