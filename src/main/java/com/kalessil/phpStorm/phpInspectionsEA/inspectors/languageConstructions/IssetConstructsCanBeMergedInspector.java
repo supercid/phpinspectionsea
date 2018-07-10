@@ -119,7 +119,7 @@ public class IssetConstructsCanBeMergedInspector extends BasePhpInspection {
                         .filter(Objects::nonNull).map(ExpressionSemanticUtil::getExpressionTroughParenthesis)
                         .forEach(expression -> {
                             if (expression instanceof BinaryExpression) {
-                                result.addAll(extract((BinaryExpression) expression, operator));
+                                result.addAll(this.extract((BinaryExpression) expression, operator));
                             } else {
                                 result.add(expression);
                             }
@@ -132,7 +132,9 @@ public class IssetConstructsCanBeMergedInspector extends BasePhpInspection {
         };
     }
 
-    private class MergeConstructsFix implements LocalQuickFix {
+    private static final class MergeConstructsFix implements LocalQuickFix {
+        private static final String title = "Merge 'isset(...)' constructs";
+
         final private SmartPsiElementPointer<BinaryExpression> binary;
         final private List<String> fragments;
         final private SmartPsiElementPointer<PhpIsset> first;
@@ -142,13 +144,13 @@ public class IssetConstructsCanBeMergedInspector extends BasePhpInspection {
         @NotNull
         @Override
         public String getName() {
-            return "Merge 'isset(...)' constructs";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         MergeConstructsFix(
@@ -158,13 +160,20 @@ public class IssetConstructsCanBeMergedInspector extends BasePhpInspection {
             @NotNull PhpIsset second,
             @NotNull IElementType operator
         ) {
+            super();
             final SmartPointerManager factory = SmartPointerManager.getInstance(binary.getProject());
 
-            this.fragments = fragments.stream().filter(Objects::nonNull).map(PsiElement::getText).collect(Collectors.toList());
-            this.operator  = operator;
-            this.binary    = factory.createSmartPsiElementPointer(binary);
-            this.first     = factory.createSmartPsiElementPointer(first);
-            this.second    = factory.createSmartPsiElementPointer(second);
+            this.operator = operator;
+            this.binary   = factory.createSmartPsiElementPointer(binary);
+            this.first    = factory.createSmartPsiElementPointer(first);
+            this.second   = factory.createSmartPsiElementPointer(second);
+
+            this.fragments = fragments.stream().filter(Objects::nonNull)
+                    .map(fragment -> {
+                        final PsiElement parent = fragment.getParent();
+                        return parent instanceof ParenthesizedExpression ? parent.getText() : fragment.getText();
+                    })
+                    .collect(Collectors.toList());
         }
 
         @Override

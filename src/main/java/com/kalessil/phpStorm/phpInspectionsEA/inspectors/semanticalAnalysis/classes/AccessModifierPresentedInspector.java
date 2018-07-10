@@ -101,30 +101,33 @@ public class AccessModifierPresentedInspector extends BasePhpInspection {
         });
     }
 
-    private static class MemberVisibilityFix implements LocalQuickFix {
+    private static final class MemberVisibilityFix implements LocalQuickFix {
+        private static final String title = "Declare the member public";
+
         final private SmartPsiElementPointer<PhpModifierList> modifiersReference;
 
         @NotNull
         @Override
         public String getName() {
-            return "Declare public";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName() + " (member)";
+            return title;
         }
 
         MemberVisibilityFix(@NotNull PhpModifierList modifiers) {
-            final SmartPointerManager manager = SmartPointerManager.getInstance(modifiers.getProject());
-            this.modifiersReference           = manager.createSmartPsiElementPointer(modifiers);
+            super();
+
+            this.modifiersReference = SmartPointerManager.getInstance(modifiers.getProject()).createSmartPsiElementPointer(modifiers);
         }
 
         @Override
         public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
             final PhpModifierList modifiers = this.modifiersReference.getElement();
-            if (modifiers != null) {
+            if (modifiers != null && !project.isDisposed()) {
                 final String modifierFinal    = modifiers.hasFinal() ? "final " : "";
                 final String modifierAbstract = modifiers.hasAbstract() ? "abstract " : "";
                 final String modifierStatic   = modifiers.hasStatic() ? " static" : "";
@@ -139,24 +142,27 @@ public class AccessModifierPresentedInspector extends BasePhpInspection {
         }
     }
 
-    private static class ConstantVisibilityFix implements LocalQuickFix {
+    private static final class ConstantVisibilityFix implements LocalQuickFix {
+        private static final String title = "Declare the constant public";
+
         private final SmartPsiElementPointer<Field> constFieldReference;
 
         @NotNull
         @Override
         public String getName() {
-            return "Declare public";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName() + " (constant)";
+            return title;
         }
 
         ConstantVisibilityFix(@NotNull Field constField) {
-            final SmartPointerManager manager = SmartPointerManager.getInstance(constField.getProject());
-            this.constFieldReference          = manager.createSmartPsiElementPointer(constField);
+            super();
+
+            this.constFieldReference = SmartPointerManager.getInstance(constField.getProject()).createSmartPsiElementPointer(constField);
         }
 
         @Override

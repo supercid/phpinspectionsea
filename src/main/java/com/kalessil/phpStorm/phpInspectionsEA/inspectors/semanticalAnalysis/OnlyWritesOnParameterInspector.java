@@ -89,13 +89,13 @@ public class OnlyWritesOnParameterInspector extends BasePhpInspection {
                     final boolean isTargetContext =
                         parent instanceof ParenthesizedExpression ||
                         (parent instanceof BinaryExpression && OpenapiTypesUtil.tsCOMPARE_EQUALITY_OPS.contains(((BinaryExpression) parent).getOperationType())) ||
+                        parent instanceof ArrayIndex ||
                         OpenapiTypesUtil.isAssignment(parent);
                     if (isTargetContext) {
                         final PsiElement scope = ExpressionSemanticUtil.getScope(assignmentExpression);
                         if (scope != null) {
-                            final Function function   = (Function) scope;
-                            final boolean isParameter = Arrays.stream(function.getParameters()).anyMatch(parameter -> parameter.getName().equals(variableName));
-                            if (!isParameter) {
+                            final Function function = (Function) scope;
+                            if (Arrays.stream(function.getParameters()).noneMatch(parameter -> parameter.getName().equals(variableName))) {
                                 final List<Variable> uses   = ExpressionSemanticUtil.getUseListVariables(function);
                                 final boolean isUseVariable = uses != null && uses.stream().anyMatch(candidate -> candidate.getName().equals(variableName));
                                 if (!isUseVariable) {
@@ -139,11 +139,12 @@ public class OnlyWritesOnParameterInspector extends BasePhpInspection {
                 int intCountReadAccesses  = 0;
                 int intCountWriteAccesses = 0;
                 for (final PhpAccessVariableInstruction instruction : usages) {
-                    final PsiElement parent = instruction.getAnchor().getParent();
+                    final PsiElement variable = instruction.getAnchor();
+                    final PsiElement parent   = variable.getParent();
 
                     if (parent instanceof ArrayAccessExpression) {
                         /* find out which expression is holder */
-                        PsiElement objLastSemanticExpression = instruction.getAnchor();
+                        PsiElement objLastSemanticExpression = variable;
                         PsiElement objTopSemanticExpression  = objLastSemanticExpression.getParent();
                         /* TODO: iterator for array access expression */
                         while (objTopSemanticExpression instanceof ArrayAccessExpression) {
@@ -191,7 +192,7 @@ public class OnlyWritesOnParameterInspector extends BasePhpInspection {
                                 /* when modifying the reference it's link READ and linked WRITE semantics */
                                 ++intCountReadAccesses;
                             } else {
-                                /* when modifying non non-reference, register as write only access for reporting */
+                                /* when modifying non-reference, register as write only access for reporting */
                                 targetExpressions.add(parent);
                             }
                         }
@@ -201,13 +202,36 @@ public class OnlyWritesOnParameterInspector extends BasePhpInspection {
                         continue;
                     }
 
+                    if (parent instanceof SelfAssignmentExpression) {
+                        final SelfAssignmentExpression selfAssignment = (SelfAssignmentExpression) parent;
+                        final PsiElement sameVariableCandidate        = selfAssignment.getVariable();
+                        if (sameVariableCandidate instanceof Variable) {
+                            final Variable candidate = (Variable) sameVariableCandidate;
+                            if (candidate.getName().equals(parameterName)) {
+                                ++intCountWriteAccesses;
+                                if (isReference) {
+                                    /* when modifying the reference it's link READ and linked WRITE semantics */
+                                    ++intCountReadAccesses;
+                                } else {
+                                    /* when modifying non-reference, register as write only access for reporting */
+                                    targetExpressions.add(variable);
+                                }
+                                if (!OpenapiTypesUtil.isStatementImpl(parent.getParent())) {
+                                    ++intCountReadAccesses;
+                                }
+                                continue;
+                            }
+                        }
+                    }
+
                     /* if variable assigned with reference, we need to preserve this information for correct checks */
                     if (parent instanceof AssignmentExpression) {
                         /* ensure variable with the same name being written */
                         final AssignmentExpression referenceAssignmentCandidate = (AssignmentExpression) parent;
-                        if (referenceAssignmentCandidate.getVariable() instanceof Variable) {
-                            final Variable sameVariableCandidate = (Variable) referenceAssignmentCandidate.getVariable();
-                            if (sameVariableCandidate.getName().equals(parameterName)) {
+                        final PsiElement sameVariableCandidate                  = referenceAssignmentCandidate.getVariable();
+                        if (sameVariableCandidate instanceof Variable) {
+                            final Variable candidate = (Variable) sameVariableCandidate;
+                            if (candidate.getName().equals(parameterName)) {
                                 ++intCountWriteAccesses;
                                 if (isReference) {
                                     /* when modifying the reference it's link READ and linked WRITE semantics */
@@ -248,7 +272,7 @@ public class OnlyWritesOnParameterInspector extends BasePhpInspection {
                     /* ok variable usage works well with openapi */
                     final PhpAccessInstruction.Access instructionAccess = instruction.getAccess();
                     if (instructionAccess.isWrite()) {
-                        targetExpressions.add(instruction.getAnchor());
+                        targetExpressions.add(variable);
                         ++intCountWriteAccesses;
                     } else if (instructionAccess.isRead()) {
                         ++intCountReadAccesses;

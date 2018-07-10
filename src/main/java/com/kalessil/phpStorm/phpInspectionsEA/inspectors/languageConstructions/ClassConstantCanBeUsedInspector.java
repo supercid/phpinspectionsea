@@ -73,7 +73,7 @@ public class ClassConstantCanBeUsedInspector extends BasePhpInspection {
                     if (functionName != null && functionName.equals("get_called_class")) {
                         final PsiElement[] arguments = reference.getParameters();
                         if (arguments.length == 0) {
-                            holder.registerProblem(reference, messageUseStatic, new UseStaticFix("static::class"));
+                            holder.registerProblem(reference, messageUseStatic, new UseStaticFix());
                         }
                     }
                 }
@@ -146,19 +146,23 @@ public class ClassConstantCanBeUsedInspector extends BasePhpInspection {
         };
     }
 
-    private class UseStaticFix extends UseSuggestedReplacementFixer {
+    private static final class UseStaticFix extends UseSuggestedReplacementFixer {
+        private static final String title = "Use static::class instead";
+
         @NotNull
         @Override
         public String getName() {
-            return "Use static::class instead.";
+            return title;
         }
 
-        UseStaticFix(@NotNull String expression) {
-            super(expression);
+        UseStaticFix() {
+            super("static::class");
         }
     }
 
-    private static class TheLocalFix implements LocalQuickFix {
+    private static final class TheLocalFix implements LocalQuickFix {
+        private static final String title = "Use ::class instead";
+
         final String fqn;
         final boolean importClasses;
         final boolean useRelativeQN;
@@ -166,13 +170,13 @@ public class ClassConstantCanBeUsedInspector extends BasePhpInspection {
         @NotNull
         @Override
         public String getName() {
-            return "Use ::class instead.";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         TheLocalFix(@NotNull String fqn, boolean importClasses, boolean useRelativeQN) {
@@ -235,7 +239,7 @@ public class ClassConstantCanBeUsedInspector extends BasePhpInspection {
                             if (ns != null) {
                                 /* ensure that current NS doesn't have  */
                                 final Collection<PhpClass> classNameCollisions = OpenapiResolveUtil.resolveClassesByFQN(
-                                        ns.getFQN() + "\\" + className,
+                                        ns.getFQN() + '\\' + className,
                                         PhpIndex.getInstance(project)
                                 );
                                 if (classNameCollisions.isEmpty()) {

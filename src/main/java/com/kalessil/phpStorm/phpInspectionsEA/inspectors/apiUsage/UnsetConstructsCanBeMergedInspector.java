@@ -54,26 +54,27 @@ public class UnsetConstructsCanBeMergedInspector extends BasePhpInspection {
         };
     }
 
-    private static class TheLocalFix implements LocalQuickFix {
+    private static final class TheLocalFix implements LocalQuickFix {
+        private static final String title = "Merge unset statements";
+
         final private SmartPsiElementPointer<PhpUnset> unset;
 
         @NotNull
         @Override
         public String getName() {
-            return "Merge unset statements";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         TheLocalFix(@NotNull PhpUnset unset) {
             super();
-            final SmartPointerManager manager =  SmartPointerManager.getInstance(unset.getProject());
 
-            this.unset = manager.createSmartPsiElementPointer(unset);
+            this.unset = SmartPointerManager.getInstance(unset.getProject()).createSmartPsiElementPointer(unset);
         }
 
         @Override

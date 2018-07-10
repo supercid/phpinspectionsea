@@ -138,7 +138,7 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
                         final PsiElement argument                = incrementCandidate.getValue();
                         if (
                             OpenapiTypesUtil.is(incrementCandidate.getOperation(), PhpTokenTypes.opINCREMENT) &&
-                            argument != null && OpeanapiEquivalenceUtil.areEqual(variable, argument)
+                            argument != null && OpenapiEquivalenceUtil.areEqual(variable, argument)
                         ) {
                             result = true;
                             break;
@@ -153,7 +153,7 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
                 for (final ArrayAccessExpression offset : PsiTreeUtil.findChildrenOfType(body, ArrayAccessExpression.class)) {
                     final ArrayIndex index = offset.getIndex();
                     final PsiElement value = index == null ? null : index.getValue();
-                    if (value instanceof Variable && OpeanapiEquivalenceUtil.areEqual(variable, value)) {
+                    if (value instanceof Variable && OpenapiEquivalenceUtil.areEqual(variable, value)) {
                         final PsiElement container = offset.getValue();
                         if (container != null) {
                             containers.put(container.getText(), container);
@@ -179,9 +179,9 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
                             final PsiElement right           = condition.getRightOperand();
 
                             final PsiElement value;
-                            if (left instanceof Variable && OpeanapiEquivalenceUtil.areEqual(variable, left)) {
+                            if (left instanceof Variable && OpenapiEquivalenceUtil.areEqual(variable, left)) {
                                 value = right;
-                            } else if (right instanceof Variable && OpeanapiEquivalenceUtil.areEqual(variable, right)) {
+                            } else if (right instanceof Variable && OpenapiEquivalenceUtil.areEqual(variable, right)) {
                                 value = left;
                             } else {
                                 value = null;
@@ -197,7 +197,9 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
         };
     }
 
-    private class UseForeachFix implements LocalQuickFix {
+    private static final class UseForeachFix implements LocalQuickFix {
+        private static final String title = "Use foreach instead";
+
         @NotNull
         private final SmartPsiElementPointer<PsiElement> loop;
         @NotNull
@@ -210,13 +212,13 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
         @NotNull
         @Override
         public String getName() {
-            return "Use foreach instead";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         UseForeachFix(
@@ -225,6 +227,7 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
             @Nullable PsiElement value,
             @NotNull PsiElement container
         ) {
+            super();
             final SmartPointerManager factory = SmartPointerManager.getInstance(loop.getProject());
 
             this.loop      = factory.createSmartPsiElementPointer(loop);
@@ -305,8 +308,8 @@ public class ForeachInvariantsInspector extends BasePhpInspection {
                     final PsiElement usedContainer = offset.getValue();
                     if (
                         usedIndex != null && usedContainer != null &&
-                        OpeanapiEquivalenceUtil.areEqual(index, usedIndex) &&
-                        OpeanapiEquivalenceUtil.areEqual(container, usedContainer)
+                        OpenapiEquivalenceUtil.areEqual(index, usedIndex) &&
+                        OpenapiEquivalenceUtil.areEqual(container, usedContainer)
                     ) {
                         offset.replace(replacement);
                     }

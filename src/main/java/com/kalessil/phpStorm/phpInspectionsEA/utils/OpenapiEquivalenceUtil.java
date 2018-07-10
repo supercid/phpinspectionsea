@@ -15,17 +15,17 @@ import org.jetbrains.annotations.NotNull;
  * file that was distributed with this source code.
  */
 
-final public class OpeanapiEquivalenceUtil {
+final public class OpenapiEquivalenceUtil {
     public static boolean areEqual(@NotNull PsiElement first, @NotNull PsiElement second) {
-        boolean result;
+        boolean result = false;
         try {
-            if (first instanceof Variable && second instanceof Variable) {
-                /* parser bug: "{$variable}" includes '{}' into variable node */
-                result = ((Variable) first).getName().equals(((Variable) second).getName());
-            } else {
-                result = PsiEquivalenceUtil.areElementsEquivalent(first, second);
-                if (!result) {
-                    result = first.getClass() == second.getClass() && first.getText().equals(second.getText());
+            if (first.getClass() == second.getClass()) {
+                if (first instanceof Variable && second instanceof Variable) {
+                    /* parser bug: "{$variable}" includes '{}' into variable node */
+                    result = ((Variable) first).getName().equals(((Variable) second).getName());
+                } else {
+                    result = PsiEquivalenceUtil.areElementsEquivalent(first, second) ||
+                             first.getText().equals(second.getText());
                 }
             }
         } catch (final Throwable error) {

@@ -9,7 +9,6 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.SmartPointerManager;
 import com.intellij.psi.SmartPsiElementPointer;
-import com.intellij.psi.tree.IElementType;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.BinaryExpression;
@@ -17,9 +16,12 @@ import com.jetbrains.php.lang.psi.elements.FunctionReference;
 import com.kalessil.phpStorm.phpInspectionsEA.fixers.UseSuggestedReplacementFixer;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpInspection;
-import com.kalessil.phpStorm.phpInspectionsEA.utils.OpeanapiEquivalenceUtil;
+import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiEquivalenceUtil;
 import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiTypesUtil;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /*
  * This file is part of the Php Inspections (EA Extended) package.
@@ -31,8 +33,18 @@ import org.jetbrains.annotations.NotNull;
  */
 
 public class SubStrShortHandUsageInspector extends BasePhpInspection {
-    private static final String patternSimplifyLength = "'%r%' can be used instead.";
-    private static final String patternDropLength     = "'%l%' can be safely dropped.";
+    private static final String patternSimplifyLength = "'%s' can be used instead.";
+    private static final String patternDropLength     = "'%s' can be safely dropped.";
+
+    private static final Set<String> substringFunctions = new HashSet<>();
+    private static final Set<String> lengthFunctions    = new HashSet<>();
+    static {
+        substringFunctions.add("substr");
+        substringFunctions.add("mb_substr");
+
+        lengthFunctions.add("strlen");
+        lengthFunctions.add("mb_strlen");
+    }
 
     @NotNull
     public String getShortName() {
@@ -46,110 +58,115 @@ public class SubStrShortHandUsageInspector extends BasePhpInspection {
             @Override
             public void visitPhpFunctionCall(@NotNull FunctionReference reference) {
                 final String functionName = reference.getName();
-                if (functionName == null || (!functionName.equals("substr") && !functionName.equals("mb_substr"))) {
-                    return;
-                }
-                final PsiElement[] arguments = reference.getParameters();
-                if ((3 != arguments.length && 4 != arguments.length) || !(arguments[2] instanceof BinaryExpression)) {
-                    return;
-                }
-
-
-                /* Check if 3rd argument is "[mb_]strlen($search) - [mb_]strlen(...)"
-                 *  - "[mb_]strlen($search)" is not needed
-                 */
-                final BinaryExpression candidate = (BinaryExpression) arguments[2];
-                final PsiElement operation       = candidate.getOperation();
-                if (null == operation || null == operation.getNode()) {
-                    return;
-                }
-
-                /* should be "* - *" */
-                final IElementType operationType = operation.getNode().getElementType();
-                if (operationType != PhpTokenTypes.opMINUS) {
-                    return;
-                }
-
-                /* should be "[mb_]strlen($search) - *" */
-                if (OpenapiTypesUtil.isFunctionReference(candidate.getLeftOperand()) && candidate.getRightOperand() != null) {
-                    final FunctionReference leftCall  = (FunctionReference) candidate.getLeftOperand();
-                    final String leftCallName         = leftCall.getName();
-                    final PsiElement[] leftCallParams = leftCall.getParameters();
-                    if (
-                        1 == leftCallParams.length && leftCallName != null &&
-                        (leftCallName.equals("strlen") || leftCallName.equals("mb_strlen")) &&
-                        OpeanapiEquivalenceUtil.areEqual(leftCallParams[0], arguments[0])
-                    ) {
-                        if (OpeanapiEquivalenceUtil.areEqual(candidate.getRightOperand(), arguments[1])) {
-                            /* 3rd parameter not needed at all */
-                            final String message = patternDropLength.replace("%l%", arguments[2].getText());
-                            holder.registerProblem(arguments[2], message, ProblemHighlightType.LIKE_UNUSED_SYMBOL, new Drop3rdParameterLocalFix(reference));
-                        } else {
-                            /* 3rd parameter can be simplified */
-                            final String replacement;
-                            try {
-                                replacement = "-" + Integer.parseInt(candidate.getRightOperand().getText());
-                            } catch (NumberFormatException notNumericOffset) {
-                                return;
+                if (functionName != null && substringFunctions.contains(functionName)) {
+                    final PsiElement[] arguments = reference.getParameters();
+                    if ((arguments.length == 3 || arguments.length == 4) && arguments[2] instanceof BinaryExpression) {
+                        /* check if 3rd argument is "strlen($search) - strlen(...)": "strlen($search)" is not needed */
+                        final BinaryExpression binary = (BinaryExpression) arguments[2];
+                        if (binary.getOperationType() == PhpTokenTypes.opMINUS) {
+                            final PsiElement left  = binary.getLeftOperand();
+                            final PsiElement right = binary.getRightOperand();
+                            if (left != null && right != null && OpenapiTypesUtil.isFunctionReference(left)) {
+                                final FunctionReference leftCall = (FunctionReference) left;
+                                final String leftName            = leftCall.getName();
+                                if (leftName != null && lengthFunctions.contains(leftName)) {
+                                    final PsiElement[] leftArguments = leftCall.getParameters();
+                                    if (leftArguments.length == 1 && OpenapiEquivalenceUtil.areEqual(leftArguments[0], arguments[0])) {
+                                        final PsiElement startOffset = arguments[1];
+                                        if (OpenapiEquivalenceUtil.areEqual(right, startOffset)) {
+                                            /* case: third parameter is not needed at all */
+                                            holder.registerProblem(
+                                                    arguments[2],
+                                                    String.format(patternDropLength, arguments[2].getText()),
+                                                    ProblemHighlightType.LIKE_UNUSED_SYMBOL,
+                                                    new DropThirdParameterFix(reference)
+                                            );
+                                        } else if (OpenapiTypesUtil.isNumber(startOffset) && OpenapiTypesUtil.isNumber(right)) {
+                                            try {
+                                                int offset = Integer.parseInt(startOffset.getText()) - Integer.parseInt(right.getText());
+                                                if (offset < 0) {
+                                                    /* case: third parameter can be simplified */
+                                                    holder.registerProblem(
+                                                            binary,
+                                                            String.format(patternSimplifyLength, offset),
+                                                            new SimplifyFix(String.valueOf(offset))
+                                                    );
+                                                } else {
+                                                    /* case: third parameter is not needed at all */
+                                                    holder.registerProblem(
+                                                            arguments[2],
+                                                            String.format(patternDropLength, arguments[2].getText()),
+                                                            ProblemHighlightType.LIKE_UNUSED_SYMBOL,
+                                                            new DropThirdParameterFix(reference)
+                                                    );
+                                                }
+                                            } catch (final NumberFormatException expected) {
+                                                // return;
+                                            }
+                                        }
+                                    }
+                                }
                             }
-
-                            final String message = patternSimplifyLength.replace("%r%", replacement);
-                            holder.registerProblem(candidate, message, new SimplifyFix(replacement));
                         }
-
-                        // return;
                     }
                 }
             }
         };
     }
 
-    private static class Drop3rdParameterLocalFix implements LocalQuickFix {
+    private static final class DropThirdParameterFix implements LocalQuickFix {
+        private static final String title = "Remove the third parameter";
+
         final private SmartPsiElementPointer<FunctionReference> call;
 
-        Drop3rdParameterLocalFix(@NotNull FunctionReference call){
+        DropThirdParameterFix(@NotNull FunctionReference call){
             super();
-            final SmartPointerManager factory = SmartPointerManager.getInstance(call.getProject());
-
-            this.call = factory.createSmartPsiElementPointer(call);
+            this.call = SmartPointerManager.getInstance(call.getProject()).createSmartPsiElementPointer(call);
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Remove ambiguous 3rd parameter";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override
         public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
             final FunctionReference call = this.call.getElement();
-            if (null != call) {
-                final PsiElement[] params           = call.getParameters();
-                final String pattern                = 3 == params.length ? "pattern(null, null)" : "pattern(null, null, null, null)";
-                final FunctionReference replacement = PhpPsiElementFactory.createFunctionReference(project, pattern);
-                final PsiElement[] replaceParams    = replacement.getParameters();
-                replaceParams[0].replace(params[0]);
-                replaceParams[1].replace(params[1]);
-                if (3 != params.length) {
-                    replaceParams[3].replace(params[3]);
+            if (call != null && !project.isDisposed()) {
+                final PsiElement socket = call.getParameterList();
+                if (socket != null) {
+                    final PsiElement[] arguments        = call.getParameters();
+                    final String pattern                = arguments.length == 3 ? "pattern(null, null)" : "pattern(null, null, null, null)";
+                    final FunctionReference replacement = PhpPsiElementFactory.createFunctionReference(project, pattern);
+                    final PsiElement[] replaceArguments = replacement.getParameters();
+                    replaceArguments[0].replace(arguments[0]);
+                    replaceArguments[1].replace(arguments[1]);
+                    if (arguments.length != 3) {
+                        replaceArguments[3].replace(arguments[3]);
+                    }
+                    final PsiElement donor  = replacement.getParameterList();
+                    if (donor != null) {
+                        socket.replace(donor);
+                    }
                 }
-
-                call.getParameterList().replace(replacement.getParameterList());
             }
         }
     }
 
-    private static class SimplifyFix extends UseSuggestedReplacementFixer {
+    private static final class SimplifyFix extends UseSuggestedReplacementFixer {
+        private static final String title = "Simplify the third parameter";
+
         @NotNull
         @Override
         public String getName() {
-            return "Simplify the third parameter";
+            return title;
         }
 
         SimplifyFix(@NotNull String expression) {

@@ -30,6 +30,8 @@ public class ScandirUsageInspector extends BasePhpInspection {
     @NotNull
     public PsiElementVisitor buildVisitor(@NotNull final ProblemsHolder holder, boolean isOnTheFly) {
         return new BasePhpElementVisitor() {
+            /* note: glob is also sorting by default, but it lacking sort-ing flag, hence glob inspection skipped */
+
             @Override
             public void visitPhpFunctionCall(@NotNull FunctionReference reference) {
                 final String functionName = reference.getName();
@@ -44,11 +46,13 @@ public class ScandirUsageInspector extends BasePhpInspection {
         };
     }
 
-    private class NoSortFix extends UseSuggestedReplacementFixer {
+    private static final class NoSortFix extends UseSuggestedReplacementFixer {
+        private static final String title = "Disable sorting by default";
+
         @NotNull
         @Override
         public String getName() {
-            return "Disable sorting by default";
+            return title;
         }
 
         NoSortFix(@NotNull String expression) {

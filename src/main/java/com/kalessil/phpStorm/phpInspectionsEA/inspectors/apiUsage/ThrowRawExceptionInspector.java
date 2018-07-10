@@ -74,17 +74,19 @@ public class ThrowRawExceptionInspector extends BasePhpInspection {
         );
     }
 
-    static private class TheLocalFix implements LocalQuickFix {
+    private static final class TheLocalFix implements LocalQuickFix {
+        private static final String title = "Throw RuntimeException instead";
+
         @NotNull
         @Override
         public String getName() {
-            return "Throw RuntimeException instead";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override

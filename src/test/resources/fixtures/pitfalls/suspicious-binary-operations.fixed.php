@@ -68,3 +68,28 @@ $nullable = null;
 $falsy    = false;
 if ($nullable >= 5) {}
 if ($falsy > 5) {}
+
+/* logical operands and multi-value cases */
+if ($x == 5 && $x == 6) {}
+if (5 === $x && 6 === $x) {}
+if ($x != 'x' || $x != 'y') {}
+if ('x' !== $x || 'y' !== $x) {}
+
+/* false-positives: operators not the same, complex expressions */
+if ($x == 5 && $x === 6) {}
+if ($x != 'x' || $x !== 'y') {}
+if ($x == 5 && $x == $y) {}
+
+/* typos in logical operands */
+if ($x && $x & $x) {}
+if ($x || $x & $x) {}
+if ($x && $x | $x) {}
+if ($x || $x | $x) {}
+
+/* false-positives: parentheses, mixed operators, integer types */
+if ($x && ($x & $x)) {}
+if ($x || ($x & $x)) {}
+if ($x || ($x | $x)) {}
+if ($x && ($x | $x)) {}
+if ($x && 10 & 5) {}
+if ($x || 10 | 5) {}

@@ -3,7 +3,6 @@ package com.kalessil.phpStorm.phpInspectionsEA.utils;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocType;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
@@ -183,64 +182,97 @@ final public class ExpressionSemanticUtil {
 
     public static boolean isUsedAsLogicalOperand(@NotNull PsiElement expression) {
         final PsiElement parent = expression.getParent();
-        if (parent instanceof If || parent instanceof ElseIf) {
+        if (parent instanceof If || parent instanceof ElseIf || parent instanceof While || parent instanceof DoWhile) {
             return true;
-        }
-        if (parent instanceof UnaryExpression) {
+        } else if (parent instanceof UnaryExpression) {
             return OpenapiTypesUtil.is(((UnaryExpression) parent).getOperation(), PhpTokenTypes.opNOT);
-        }
-        if (parent instanceof BinaryExpression) {
+        } else if (parent instanceof BinaryExpression) {
             final IElementType operation = ((BinaryExpression) parent).getOperationType();
             return PhpTokenTypes.tsSHORT_CIRCUIT_AND_OPS.contains(operation) ||
                    PhpTokenTypes.tsSHORT_CIRCUIT_OR_OPS.contains(operation);
-        }
-        if (parent instanceof TernaryExpression) {
+        } else if (parent instanceof TernaryExpression) {
             final TernaryExpression ternary = (TernaryExpression) parent;
             return !ternary.isShort() && expression == ternary.getCondition();
+        } else {
+            return false;
         }
-        return false;
     }
 
     @Nullable
     public static StringLiteralExpression resolveAsStringLiteral(@Nullable PsiElement expression) {
-        if (null == expression) {
-            return null;
-        }
-        expression                     = ExpressionSemanticUtil.getExpressionTroughParenthesis(expression);
-        StringLiteralExpression result = null;
-
-        if (expression instanceof StringLiteralExpression) {
-            result = (StringLiteralExpression) expression;
-        } else if (expression instanceof FieldReference || expression instanceof ClassConstantReference) {
-            final Field fieldOrConstant = (Field) OpenapiResolveUtil.resolveReference((MemberReference) expression);
-            if (fieldOrConstant != null && fieldOrConstant.getDefaultValue() instanceof StringLiteralExpression) {
-                result = (StringLiteralExpression) fieldOrConstant.getDefaultValue();
+        StringLiteralExpression result = expression instanceof StringLiteralExpression ? (StringLiteralExpression) expression : null;
+        if (result == null && expression != null) {
+            final Set<PsiElement> variants = PossibleValuesDiscoveryUtil.discover(expression);
+            if (!variants.isEmpty()) {
+                final List<PsiElement> literals = variants.stream()
+                        .filter(variant -> variant instanceof StringLiteralExpression)
+                        .collect(Collectors.toList());
+                variants.clear();
+                if (literals.size() == 1) {
+                    result = (StringLiteralExpression) literals.get(0);
+                }
+                literals.clear();
             }
-        } else if (expression instanceof Variable) {
-            final String variable = ((Variable) expression).getName();
-            if (!variable.isEmpty()) {
-                final Function scope = ExpressionSemanticUtil.getScope(expression);
-                if (scope != null) {
-                    final Set<StringLiteralExpression> matched         = new HashSet<>();
-                    final Collection<AssignmentExpression> assignments = PsiTreeUtil.findChildrenOfType(scope, AssignmentExpression.class);
-                    for (final AssignmentExpression assignment : assignments) {
-                        final PhpPsiElement container = assignment.getVariable();
-                        if (container instanceof Variable && variable.equals(container.getName())) {
-                            final PsiElement value = assignment.getValue();
-                            if (value instanceof StringLiteralExpression) {
-                                matched.add((StringLiteralExpression) value);
+        }
+        return result;
+    }
+
+
+    @NotNull
+    public static Set<String> resolveAsString(@Nullable PsiElement expression) {
+        final Set<String> result = new HashSet<>();
+        if (expression != null) {
+            final Set<PsiElement> variants = PossibleValuesDiscoveryUtil.discover(expression);
+            if (!variants.isEmpty()) {
+                for (final PsiElement variant : variants) {
+                    if (variant instanceof StringLiteralExpression) {
+                        final StringLiteralExpression literal = (StringLiteralExpression) variant;
+                        if (literal.getFirstPsiChild() == null) {
+                            result.add(literal.getContents());
+                        }
+                    } else if (expression instanceof BinaryExpression) {
+                        final BinaryExpression binary = (BinaryExpression) expression;
+                        if (binary.getOperationType() == PhpTokenTypes.opCONCAT) {
+                            final List<PsiElement> fragments = getConditions(binary, PhpTokenTypes.opCONCAT);
+                            final boolean tryExtracting      = fragments.size() >= 2 &&
+                                                               fragments.stream().allMatch(fragment ->
+                                                                        fragment instanceof StringLiteralExpression ||
+                                                                        fragment instanceof ClassConstantReference ||
+                                                                        fragment instanceof FunctionReference
+                                                               );
+                            if (tryExtracting) {
+                                StringBuilder buffer = new StringBuilder();
+                                for (final PsiElement fragment : fragments) {
+                                    StringLiteralExpression extracted = null;
+                                    if (fragment instanceof FunctionReference) {
+                                        final FunctionReference reference = (FunctionReference) fragment;
+                                        final String functionName         = reference.getName();
+                                        if (functionName != null && functionName.equals("preg_quote")) {
+                                            final PsiElement[] arguments = reference.getParameters();
+                                            extracted = arguments.length > 0 ? resolveAsStringLiteral(arguments[0]) : null;
+                                        }
+                                    } else {
+                                        extracted = resolveAsStringLiteral(fragment);
+                                    }
+                                    /* decide if we should break the loop */
+                                    if (extracted != null && extracted.getFirstPsiChild() == null) {
+                                        buffer.append(extracted.getContents());
+                                    } else {
+                                        buffer = null;
+                                        break;
+                                    }
+                                }
+                                if (buffer != null) {
+                                    result.add(buffer.toString());
+                                }
                             }
+                            fragments.clear();
                         }
                     }
-                    assignments.clear();
-                    if (matched.size() == 1) {
-                        result = matched.iterator().next();
-                    }
-                    matched.clear();
                 }
+                variants.clear();
             }
         }
-
         return result;
     }
 }

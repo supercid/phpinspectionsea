@@ -2,8 +2,7 @@ package com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.cla
 
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.codeInspection.ProblemsHolder;
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
-import org.apache.commons.lang.StringUtils;
+import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.regex.Matcher;
@@ -19,31 +18,50 @@ import java.util.regex.Pattern;
  */
 
 public class SuspiciousCharactersRangeSpecificationStrategy {
-    private static final String messagePattern = "Did you mean [...A-Za-z...] instead of [...%s...]?";
+    private static final String messagePattern = "'%s' range in '%s' is looking rather suspicious, please check.";
 
-    final static private Pattern regexGreedyCharacterSet;
+    final static private Pattern matchGroups;
+    final static private Pattern matchRanges;
     static {
-        // Original regex: \[([^\[\]]+)\]
-        regexGreedyCharacterSet = Pattern.compile("\\[([^\\[\\]]+)\\]");
+        /* original regex: (?:\[\^?((?:[^\\\[\]]|\\.)+)\]) */
+        matchGroups = Pattern.compile("(?:\\[\\^?((?:[^\\\\\\[\\]]|\\\\.)+)\\])");
+        /* original regex: [^\\]-(?:[^\\]|\\[^xpu]) */
+        matchRanges = Pattern.compile("[^\\\\]-(?:[^\\\\]|\\\\[^xpu])");
     }
 
-    static public void apply(final String pattern, @NotNull final StringLiteralExpression target, @NotNull final ProblemsHolder holder) {
-        if (!StringUtils.isEmpty(pattern) && pattern.indexOf('[') >= 0) {
-            final Matcher regexMatcher = regexGreedyCharacterSet.matcher(pattern);
-            while (regexMatcher.find()) {
-                final String set = regexMatcher.group(1);
+    static public void apply(final String pattern, @NotNull final PsiElement target, @NotNull final ProblemsHolder holder) {
+        if (pattern != null && !pattern.isEmpty() && pattern.indexOf('[') != -1) {
+            final Matcher groupsMatcher = matchGroups.matcher(pattern);
+            while (groupsMatcher.find()) {
+                final String match          = groupsMatcher.group(0);
+                final Matcher rangesMatcher = matchRanges.matcher(groupsMatcher.group(1));
+                while (rangesMatcher.find()) {
+                    final String range = rangesMatcher.group(0);
+                    if (
+                        !range.equals("a-z") && !range.equals("A-Z") &&
+                        !range.equals("a-f") && !range.equals("A-F") &&
+                        !range.equals("a-i") && !range.equals("A-I") &&
+                        !range.equals("0-9") &&
+                        !range.equals("а-я") && !range.equals("А-Я")
+                    ) {
+                        /* false-positives: valid numeric ranges */
+                        if (range.matches("\\d-\\d")) {
+                            try {
+                                final String[] fragments = range.split("-");
+                                if (Integer.parseInt(fragments[0]) < Integer.parseInt(fragments[1])) {
+                                    return;
+                                }
+                            } catch (final NumberFormatException expected) {
+                                // return;
+                            }
+                        }
 
-                final String message;
-                if (set.contains("A-z")) {
-                    message = String.format(messagePattern, "A-z");
-                } else if (set.contains("a-Z")) {
-                    message = String.format(messagePattern, "a-Z");
-                } else {
-                    message = null;
-                }
-
-                if (message != null) {
-                    holder.registerProblem(target, message, ProblemHighlightType.GENERIC_ERROR);
+                        holder.registerProblem(
+                                target,
+                                String.format(messagePattern, range, match),
+                                ProblemHighlightType.GENERIC_ERROR
+                        );
+                    }
                 }
             }
         }

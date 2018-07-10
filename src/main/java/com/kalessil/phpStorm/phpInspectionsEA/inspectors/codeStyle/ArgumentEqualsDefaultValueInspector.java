@@ -11,7 +11,7 @@ import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpInspection;
-import com.kalessil.phpStorm.phpInspectionsEA.utils.OpeanapiEquivalenceUtil;
+import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiEquivalenceUtil;
 import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiResolveUtil;
 import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiTypesUtil;
 import org.jetbrains.annotations.NotNull;
@@ -38,6 +38,8 @@ public class ArgumentEqualsDefaultValueInspector extends BasePhpInspection {
         /* in exceptions die to conflict with strict types inspection, which requires argument specification */
         specialFunctions.add("array_search");
         specialFunctions.add("in_array");
+        specialFunctions.add("is_subclass_of");
+        specialFunctions.add("is_a");
 
         specialConstants.add("__LINE__");
         specialConstants.add("__FILE__");
@@ -90,7 +92,7 @@ public class ArgumentEqualsDefaultValueInspector extends BasePhpInspection {
                                         }
                                         /* false-positives: unmatched values */
                                         final PsiElement argument = arguments[index];
-                                        if (value == null || !OpeanapiEquivalenceUtil.areEqual(value, argument)) {
+                                        if (value == null || !OpenapiEquivalenceUtil.areEqual(value, argument)) {
                                             break;
                                         }
 
@@ -119,27 +121,30 @@ public class ArgumentEqualsDefaultValueInspector extends BasePhpInspection {
         };
     }
 
-    private static class TheLocalFix implements LocalQuickFix {
+    private static final class TheLocalFix implements LocalQuickFix {
+        private static final String title = "Drop unneeded arguments";
+
         private final SmartPsiElementPointer<PsiElement> dropFrom;
         private final SmartPsiElementPointer<PsiElement> dropTo;
 
         private TheLocalFix(@NotNull PsiElement dropFrom, @NotNull PsiElement dropTo) {
-            final SmartPointerManager manager = SmartPointerManager.getInstance(dropFrom.getProject());
+            super();
+            final SmartPointerManager factory = SmartPointerManager.getInstance(dropFrom.getProject());
 
-            this.dropFrom = manager.createSmartPsiElementPointer(dropFrom);
-            this.dropTo   = manager.createSmartPsiElementPointer(dropTo);
+            this.dropFrom = factory.createSmartPsiElementPointer(dropFrom);
+            this.dropTo   = factory.createSmartPsiElementPointer(dropTo);
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Drop unneeded arguments";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override

@@ -46,7 +46,8 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
     @NotNull
     public PsiElementVisitor buildVisitor(@NotNull final ProblemsHolder holder, boolean isOnTheFly) {
         return new BasePhpElementVisitor() {
-            public void visitPhpField(Field field) {
+            @Override
+            public void visitPhpField(@NotNull Field field) {
                 if (REPORT_DEFAULTS_FLAWS && !field.isConstant()) {
                     final PhpClass clazz       = field.getContainingClass();
                     final PhpClass parentClazz = clazz == null ? null : OpenapiResolveUtil.resolveSuperClass(clazz);
@@ -60,7 +61,7 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
                     } else if (fieldDefault instanceof PhpPsiElement && originDefault instanceof PhpPsiElement) {
                         final boolean isDefaultDuplicate =
                             !originField.getModifier().getAccess().isPrivate() &&
-                            OpeanapiEquivalenceUtil.areEqual(fieldDefault, originDefault);
+                            OpenapiEquivalenceUtil.areEqual(fieldDefault, originDefault);
                         if (isDefaultDuplicate) {
                             holder.registerProblem(fieldDefault, messageSenselessWrite, ProblemHighlightType.LIKE_UNUSED_SYMBOL);
                         }
@@ -68,7 +69,8 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
                 }
             }
 
-            public void visitPhpMethod(Method method) {
+            @Override
+            public void visitPhpMethod(@NotNull Method method) {
                 /* configuration-based toggle */
                 if (!REPORT_INIT_FLAWS) {
                     return;
@@ -76,7 +78,7 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
 
                 /* process only constructors with non-empty body */
                 final PhpClass clazz = method.getContainingClass();
-                if (null == clazz || clazz.isInterface() || clazz.isTrait() || !method.getName().equals("__construct")) {
+                if (null == clazz || !method.getName().equals("__construct") || clazz.isInterface() || clazz.isTrait()) {
                     return;
                 }
                 final GroupStatement body = ExpressionSemanticUtil.getGroupStatement(method);
@@ -88,15 +90,16 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
                 /* protected/public properties init in __construct can be bypassed, so defaults might have sense */
                 final Map<String, PsiElement> propertiesToCheck = new HashMap<>();
                 for (final Field field : clazz.getOwnFields()) {
-                    if (field.isConstant() || field.getModifier().isStatic() || !field.getModifier().isPrivate()) {
-                        continue;
-                    }
-
-                    final PsiElement defaultValue = field.getDefaultValue();
-                    if (defaultValue instanceof PhpPsiElement && !PhpLanguageUtil.isNull(defaultValue)) {
-                        propertiesToCheck.put(field.getName(), defaultValue);
-                    } else {
-                        propertiesToCheck.put(field.getName(), null);
+                    if (!field.isConstant()) {
+                        final PhpModifier modifiers = field.getModifier();
+                        if (modifiers.isPrivate() && !modifiers.isStatic()) {
+                            final PsiElement defaultValue = field.getDefaultValue();
+                            if (defaultValue instanceof PhpPsiElement && !PhpLanguageUtil.isNull(defaultValue)) {
+                                propertiesToCheck.put(field.getName(), defaultValue);
+                            } else {
+                                propertiesToCheck.put(field.getName(), null);
+                            }
+                        }
                     }
                 }
                 if (propertiesToCheck.isEmpty()) {
@@ -123,7 +126,7 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
                         /* Pattern: written and default values are identical */
                         if (
                             (null == fieldDefault && PhpLanguageUtil.isNull(value)) ||
-                            (null != fieldDefault && OpeanapiEquivalenceUtil.areEqual(value, fieldDefault))
+                            (null != fieldDefault && OpenapiEquivalenceUtil.areEqual(value, fieldDefault))
                         ) {
                             holder.registerProblem(expression, messageSenselessWrite, ProblemHighlightType.LIKE_UNUSED_SYMBOL);
                             continue;
@@ -135,12 +138,10 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
                         /* false-positive: property is involved into generating new value */
                         boolean isPropertyReused = false;
                         for (final FieldReference candidate : PsiTreeUtil.findChildrenOfType(value, FieldReference.class)) {
-                            if (!OpeanapiEquivalenceUtil.areEqual(container, candidate)) {
-                                continue;
+                            if (OpenapiEquivalenceUtil.areEqual(container, candidate)) {
+                                isPropertyReused = true;
+                                break;
                             }
-
-                            isPropertyReused = true;
-                            break;
                         }
 
                         if (!isPropertyReused && REPORT_DEFAULTS_FLAWS) {
@@ -160,17 +161,19 @@ public class PropertyInitializationFlawsInspector extends BasePhpInspection {
         });
     }
 
-    private static class DropFieldDefaultValueFix implements LocalQuickFix {
+    private static final class DropFieldDefaultValueFix implements LocalQuickFix {
+        private static final String title = "Remove default assignment";
+
         @NotNull
         @Override
         public String getName() {
-            return "Remove default assignment";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override

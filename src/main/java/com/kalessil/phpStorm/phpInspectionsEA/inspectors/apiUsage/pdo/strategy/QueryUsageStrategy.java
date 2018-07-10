@@ -13,7 +13,7 @@ import com.jetbrains.php.lang.psi.elements.AssignmentExpression;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.Statement;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.apiUsage.pdo.utils.MethodIdentityUtil;
-import com.kalessil.phpStorm.phpInspectionsEA.utils.OpeanapiEquivalenceUtil;
+import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiEquivalenceUtil;
 import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiTypesUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -60,7 +60,7 @@ final public class QueryUsageStrategy {
                 final PsiElement variableUsed     = reference.getClassReference();
                 if (
                     variableAssigned != null && variableUsed != null &&
-                    OpeanapiEquivalenceUtil.areEqual(variableAssigned, variableUsed)
+                    OpenapiEquivalenceUtil.areEqual(variableAssigned, variableUsed)
                 ) {
                     holder.registerProblem(reference, message, new UseQueryFix(precedingReference));
                 }
@@ -69,27 +69,27 @@ final public class QueryUsageStrategy {
         }
     }
 
-    private static class UseQueryFix implements LocalQuickFix {
-        @NotNull
+    private static final class UseQueryFix implements LocalQuickFix {
+        private static final String title = "Use '->query(...)' instead";
+
         private final SmartPsiElementPointer<MethodReference> prepare;
 
         UseQueryFix(@NotNull MethodReference prepare) {
             super();
-            SmartPointerManager manager =  SmartPointerManager.getInstance(prepare.getProject());
 
-            this.prepare = manager.createSmartPsiElementPointer(prepare);
+            this.prepare = SmartPointerManager.getInstance(prepare.getProject()).createSmartPsiElementPointer(prepare);
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Use '->query(...)' instead";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override

@@ -10,7 +10,7 @@ import com.kalessil.phpStorm.phpInspectionsEA.EAUltimateApplicationComponent;
 import com.kalessil.phpStorm.phpInspectionsEA.fixers.UseSuggestedReplacementFixer;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpInspection;
-import com.kalessil.phpStorm.phpInspectionsEA.utils.OpeanapiEquivalenceUtil;
+import com.kalessil.phpStorm.phpInspectionsEA.utils.OpenapiEquivalenceUtil;
 import org.jetbrains.annotations.NotNull;
 
 /*
@@ -42,7 +42,7 @@ public class SuspiciousArrayElementInspector extends BasePhpInspection {
                     final PsiElement key = element.getKey();
                     if (key instanceof Variable) {
                         final PsiElement value = element.getValue();
-                        if (value != null && OpeanapiEquivalenceUtil.areEqual(key, value)) {
+                        if (value != null && OpenapiEquivalenceUtil.areEqual(key, value)) {
                             final String replacement = String.format("'%s'", ((Variable) key).getName());
                             holder.registerProblem(
                                     key,
@@ -56,11 +56,13 @@ public class SuspiciousArrayElementInspector extends BasePhpInspection {
         };
     }
 
-    private class UseStringKeyFix extends UseSuggestedReplacementFixer {
+    private static final class UseStringKeyFix extends UseSuggestedReplacementFixer {
+        private static final String title = "Replace with string key";
+
         @NotNull
         @Override
         public String getName() {
-            return "Replace with string key";
+            return title;
         }
 
         UseStringKeyFix(@NotNull String expression) {

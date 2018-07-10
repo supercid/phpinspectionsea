@@ -68,3 +68,28 @@ $nullable = null;
 $falsy    = false;
 if (<error descr="This might work not as expected (an argument can be null/false), use '$nullable >= 5' to be sure.">!($nullable < 5)</error>) {}
 if (<error descr="This might work not as expected (an argument can be null/false), use '$falsy > 5' to be sure.">!((($falsy <= 5)))</error>) {}
+
+/* logical operands and multi-value cases */
+if ($x == 5 && <error descr="'$x == 5 && $x == 6' seems to be always false.">$x == 6</error>) {}
+if (5 === $x && <error descr="'$x === 5 && $x === 6' seems to be always false.">6 === $x</error>) {}
+if ($x != 'x' || <error descr="'$x != 'x' || $x != 'y'' seems to be always true.">$x != 'y'</error>) {}
+if ('x' !== $x || <error descr="'$x !== 'x' || $x !== 'y'' seems to be always true.">'y' !== $x</error>) {}
+
+/* false-positives: operators not the same, complex expressions */
+if ($x == 5 && $x === 6) {}
+if ($x != 'x' || $x !== 'y') {}
+if ($x == 5 && $x == $y) {}
+
+/* typos in logical operands */
+if ($x && $x <error descr="It was probably was intended to use && here (if not, wrap into parentheses).">&</error> $x) {}
+if ($x || $x <error descr="It was probably was intended to use && here (if not, wrap into parentheses).">&</error> $x) {}
+if ($x && $x <error descr="It was probably was intended to use || here (if not, wrap into parentheses).">|</error> $x) {}
+if ($x || $x <error descr="It was probably was intended to use || here (if not, wrap into parentheses).">|</error> $x) {}
+
+/* false-positives: parentheses, mixed operators, integer types */
+if ($x && ($x & $x)) {}
+if ($x || ($x & $x)) {}
+if ($x || ($x | $x)) {}
+if ($x && ($x | $x)) {}
+if ($x && 10 & 5) {}
+if ($x || 10 | 5) {}

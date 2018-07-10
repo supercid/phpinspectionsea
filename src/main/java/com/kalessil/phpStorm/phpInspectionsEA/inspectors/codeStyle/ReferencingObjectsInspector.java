@@ -75,10 +75,15 @@ public class ReferencingObjectsInspector extends BasePhpInspection {
                             final String parameterName = parameter.getName();
                             final GroupStatement body  = ExpressionSemanticUtil.getGroupStatement(callable);
                             for (final Variable variable : PsiTreeUtil.findChildrenOfType(body, Variable.class)) {
-                                final PsiElement parent = variable.getParent();
-                                if (parent instanceof AssignmentExpression && parameterName.equals(variable.getName())) {
-                                    final AssignmentExpression assignment = (AssignmentExpression) parent;
-                                    if (assignment.getVariable() == variable) {
+                                if (parameterName.equals(variable.getName())) {
+                                    final PsiElement parent = variable.getParent();
+                                    if (parent instanceof AssignmentExpression) {
+                                        final boolean isWrite = ((AssignmentExpression) parent).getVariable() == variable;
+                                        if (isWrite) {
+                                            result = false;
+                                            break;
+                                        }
+                                    } else if (ExpressionSemanticUtil.isUsedAsLogicalOperand(variable)) {
                                         result = false;
                                         break;
                                     }
@@ -104,7 +109,7 @@ public class ReferencingObjectsInspector extends BasePhpInspection {
                             operation = operation.getPrevSibling();
                         }
 
-                        if (operation != null && operation.getText().replaceAll("\\s+","").equals("=&")) {
+                        if (operation != null && operation.getText().replaceAll("\\s+", "").equals("=&")) {
                             holder.registerProblem(expression, messageAssignment, new InstantiationLocalFix(operation));
                         }
                     }
@@ -113,73 +118,73 @@ public class ReferencingObjectsInspector extends BasePhpInspection {
         };
     }
 
-    private static class InstantiationLocalFix implements LocalQuickFix {
-        @NotNull
+    private static final class InstantiationLocalFix implements LocalQuickFix {
+        private static final String title = "Replace with regular assignment";
+
         final private SmartPsiElementPointer<PsiElement> assignOperator;
 
         InstantiationLocalFix(@NotNull PsiElement assignOperator) {
             super();
-            final SmartPointerManager factory = SmartPointerManager.getInstance(assignOperator.getProject());
 
-            this.assignOperator = factory.createSmartPsiElementPointer(assignOperator);
+            this.assignOperator = SmartPointerManager.getInstance(assignOperator.getProject()).createSmartPsiElementPointer(assignOperator);
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Replace with regular assignment";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override
         public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
             final PsiElement assignOperator = this.assignOperator.getElement();
-            if (assignOperator != null) {
-                LeafPsiElement replacement = PhpPsiElementFactory.createFromText(project, LeafPsiElement.class, "=");
-                assignOperator.replace(replacement);
+            if (assignOperator != null && !project.isDisposed()) {
+                final PsiElement replacement = PhpPsiElementFactory.createFromText(project, LeafPsiElement.class, "=");
+                if (replacement != null) {
+                    assignOperator.replace(replacement);
+                }
             }
         }
     }
 
-    private static class ParameterLocalFix implements LocalQuickFix {
-        @NotNull
+    private static final class ParameterLocalFix implements LocalQuickFix {
+        private static final String title = "Cleanup parameter definition";
+
         final private SmartPsiElementPointer<Parameter> parameter;
 
         ParameterLocalFix(@NotNull Parameter parameter) {
             super();
-            final SmartPointerManager factory = SmartPointerManager.getInstance(parameter.getProject());
 
-            this.parameter = factory.createSmartPsiElementPointer(parameter);
+            this.parameter = SmartPointerManager.getInstance(parameter.getProject()).createSmartPsiElementPointer(parameter);
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Cleanup parameter definition";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override
         public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
-            final Parameter parameter = this.parameter.getElement();
-            final PsiElement nameNode = NamedElementUtil.getNameIdentifier(parameter);
-            if (nameNode != null) {
+            final PsiElement nameNode = NamedElementUtil.getNameIdentifier(this.parameter.getElement());
+            if (nameNode != null && !project.isDisposed()) {
                 PsiElement previous = nameNode.getPrevSibling();
                 if (previous instanceof PsiWhiteSpace) {
                     previous = previous.getPrevSibling();
                     previous.getNextSibling().delete();
                 }
-
                 previous.delete();
             }
         }

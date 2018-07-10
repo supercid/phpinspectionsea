@@ -4,7 +4,6 @@ import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.jetbrains.php.lang.psi.elements.FunctionReference;
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.kalessil.phpStorm.phpInspectionsEA.EAUltimateApplicationComponent;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.apiUsage.FunctionCallCheckStrategy;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.apiUsage.PlainApiUseCheckStrategy;
@@ -16,11 +15,11 @@ import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.expl
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.modifiersStrategy.*;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.optimizeStrategy.AmbiguousAnythingTrimCheckStrategy;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.optimizeStrategy.SequentialClassesCollapseCheckStrategy;
+import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.optimizeStrategy.SingleCharactersAlternationStrategy;
 import com.kalessil.phpStorm.phpInspectionsEA.inspectors.regularExpressions.optimizeStrategy.UnnecessaryCaseManipulationCheckStrategy;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpInspection;
 import com.kalessil.phpStorm.phpInspectionsEA.utils.ExpressionSemanticUtil;
-import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
@@ -71,42 +70,37 @@ public class NotOptimalRegularExpressionsInspector extends BasePhpInspection {
                 if (!EAUltimateApplicationComponent.areFeaturesEnabled()) { return; }
 
                 final String functionName = reference.getName();
-                if (functionName == null || !functions.contains(functionName)) {
-                    return;
-                }
-
-                /* resolve first parameter */
-                final PsiElement[] params       = reference.getParameters();
-                StringLiteralExpression pattern = null;
-                if (params.length > 0) {
-                    pattern = ExpressionSemanticUtil.resolveAsStringLiteral(params[0]);
-                }
-                /* not available / PhpStorm limitations */
-                if (null == pattern || pattern.getContainingFile() != params[0].getContainingFile()) {
-                    return;
-                }
-
-                final String regex = pattern.getContents();
-                if (!StringUtils.isEmpty(regex) && pattern.getFirstPsiChild() == null) {
-                    Matcher regexMatcher = regexWithModifiers.matcher(regex);
-                    if (regexMatcher.find()) {
-                        final String phpRegexPattern   = regexMatcher.group(2);
-                        final String phpRegexModifiers = regexMatcher.group(3);
-                        this.checkCall(functionName, reference, pattern, phpRegexPattern, phpRegexModifiers);
-                        return;
-                    }
-
-                    regexMatcher = regexWithModifiersCurvy.matcher(regex);
-                    if (regexMatcher.find()) {
-                        final String phpRegexPattern   = regexMatcher.group(1);
-                        final String phpRegexModifiers = regexMatcher.group(2);
-                        this.checkCall(functionName, reference, pattern, phpRegexPattern, phpRegexModifiers);
-                        // return;
+                if (functionName != null && functions.contains(functionName)) {
+                    final PsiElement[] arguments = reference.getParameters();
+                    if (arguments.length > 0) {
+                        final Set<String> patterns = ExpressionSemanticUtil.resolveAsString(arguments[0]);
+                        for (final String pattern : patterns) {
+                            if (pattern != null && !pattern.isEmpty()) {
+                                final Matcher regularMatcher           = regexWithModifiers.matcher(pattern);
+                                final Matcher matcherWithCurlyBrackets = regexWithModifiersCurvy.matcher(pattern);
+                                if (regularMatcher.find()) {
+                                    final String phpRegexPattern   = regularMatcher.group(2);
+                                    final String phpRegexModifiers = regularMatcher.group(3);
+                                    this.checkCall(functionName, reference, arguments[0], phpRegexPattern, phpRegexModifiers);
+                                } else if (matcherWithCurlyBrackets.find()) {
+                                    final String phpRegexPattern   = matcherWithCurlyBrackets.group(1);
+                                    final String phpRegexModifiers = matcherWithCurlyBrackets.group(2);
+                                    this.checkCall(functionName, reference, arguments[0], phpRegexPattern, phpRegexModifiers);
+                                }
+                            }
+                        }
+                        patterns.clear();
                     }
                 }
             }
 
-            private void checkCall (String functionName, FunctionReference reference, StringLiteralExpression target, String regex, String modifiers) {
+            private void checkCall (
+                    @NotNull String functionName,
+                    @NotNull FunctionReference reference,
+                    @NotNull PsiElement target,
+                    String regex,
+                    String modifiers
+            ) {
                 /* Modifiers validity (done):
                  * + /no-az-chars/i => /no-az-chars/
                  * + /no-dot-char/s => /no-dot-char/
@@ -117,7 +111,6 @@ public class NotOptimalRegularExpressionsInspector extends BasePhpInspection {
                  */
                 DeprecatedModifiersCheckStrategy.apply(modifiers, target, holder);
                 AllowedModifierCheckStrategy.apply(modifiers, target, holder);
-                // UselessMultiLineModifierStrategy.apply(modifiers, regex, target, holder); -- we can not analyse if string has new lines
                 UselessDollarEndOnlyModifierStrategy.apply(modifiers, regex, target, holder);
                 UselessDotAllModifierCheckStrategy.apply(modifiers, regex, target, holder);
                 UselessIgnoreCaseModifierCheckStrategy.apply(modifiers, regex, target, holder);
@@ -161,10 +154,13 @@ public class NotOptimalRegularExpressionsInspector extends BasePhpInspection {
                  */
                 SequentialClassesCollapseCheckStrategy.apply(regex, target, holder);
                 AmbiguousAnythingTrimCheckStrategy.apply(functionName, reference, regex, target, holder);
-                //NonGreedyTransformCheckStrategy.apply(regex, target, holder);
                 GreedyCharactersSetCheckStrategy.apply(regex, target, holder);
-                NotMutuallyExclusiveContiguousQuantifiedTokensStrategy.apply(regex, target, holder);
-                QuantifierCompoundsQuantifierCheckStrategy.apply(regex, target, holder);
+
+                boolean greedy = QuantifierCompoundsQuantifierCheckStrategy.apply(regex, target, holder);
+                greedy         = NotMutuallyExclusiveContiguousQuantifiedTokensStrategy.apply(regex, target, holder)|| greedy;
+                if (!greedy) {
+                    SingleCharactersAlternationStrategy.apply(regex, target, holder);
+                }
 
                 /*
                  * Probably bugs:

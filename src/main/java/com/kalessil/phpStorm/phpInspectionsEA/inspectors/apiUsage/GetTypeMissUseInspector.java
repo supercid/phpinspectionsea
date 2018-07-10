@@ -114,30 +114,31 @@ public class GetTypeMissUseInspector extends BasePhpInspection {
         };
     }
 
-    private static class TheLocalFix implements LocalQuickFix {
+    private static final class TheLocalFix implements LocalQuickFix {
+        private static final String title = "Use suggested is_*(...) function instead";
+
         final private String suggestedName;
         final private boolean isInverted;
         final private SmartPsiElementPointer<PsiElement> param;
 
         TheLocalFix(@NotNull String suggestedName, @NotNull PsiElement param, boolean isInverted) {
             super();
-            final SmartPointerManager factory = SmartPointerManager.getInstance(param.getProject());
 
             this.suggestedName = suggestedName;
-            this.param         = factory.createSmartPsiElementPointer(param);
+            this.param         = SmartPointerManager.getInstance(param.getProject()).createSmartPsiElementPointer(param);
             this.isInverted    = isInverted;
         }
 
         @NotNull
         @Override
         public String getName() {
-            return "Use suggested is_*(...) function instead";
+            return title;
         }
 
         @NotNull
         @Override
         public String getFamilyName() {
-            return getName();
+            return title;
         }
 
         @Override

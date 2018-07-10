@@ -14,6 +14,11 @@ final public class NotOptimalRegularExpressionsInspectorTest extends PhpCodeInsi
         myFixture.configureByFile("fixtures/regularExpressions/greedy-character-sets.php");
         myFixture.testHighlighting(true, false, true);
     }
+    public void testSingleCharactersAlteration() {
+        myFixture.enableInspections(new NotOptimalRegularExpressionsInspector());
+        myFixture.configureByFile("fixtures/regularExpressions/single-characters-alteration.php");
+        myFixture.testHighlighting(true, false, true);
+    }
     public void testSuspiciousCharactersRange() {
         myFixture.enableInspections(new NotOptimalRegularExpressionsInspector());
         myFixture.configureByFile("fixtures/regularExpressions/suspicious-characters-range.php");
@@ -57,5 +62,10 @@ final public class NotOptimalRegularExpressionsInspectorTest extends PhpCodeInsi
         myFixture.getAllQuickFixes().forEach(fix -> myFixture.launchAction(fix));
         myFixture.setTestDataPath(".");
         myFixture.checkResultByFile("fixtures/regularExpressions/plain-api-usage.fixed.php");
+    }
+    public void testRegexDiscovery() {
+        myFixture.enableInspections(new NotOptimalRegularExpressionsInspector());
+        myFixture.configureByFile("fixtures/regularExpressions/regex-discovery.php");
+        myFixture.testHighlighting(true, false, true);
     }
 }
