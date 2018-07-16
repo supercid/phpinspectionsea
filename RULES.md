@@ -246,6 +246,8 @@ Inspections Lists (Security)
 | Security             | NonSecureOpensslVerifyUsageInspection              | Insecure 'openssl_verify(...)' usage                                   | n/a | yes | n/a  | no  |
 | Security             | CommandExecutionAsSuperUserInspection              | Command execution as super user                                        | n/a | yes | n/a  | no  |
 | Security             | HardcodedCredentialsInspection                     | Hardcoded credentials                                                  | n/a | yes | n/a  | no  |
+| Security             | BypassedPathTraversalProtectionInspection          | Bypassed pass traverse protection                                      | yes | yes | yes  | no  |
+| Security             | BypassedUrlValidationInspection                    | Bypassed URL validation                                                | n/a | yes | n/a  | no  |
 
 Inspections Lists (Performance)
 ---

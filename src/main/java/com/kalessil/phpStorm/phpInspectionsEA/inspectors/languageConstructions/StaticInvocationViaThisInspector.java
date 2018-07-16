@@ -14,6 +14,7 @@ import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.FunctionReference;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.Variable;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpElementVisitor;
 import com.kalessil.phpStorm.phpInspectionsEA.openApi.BasePhpInspection;
 import com.kalessil.phpStorm.phpInspectionsEA.options.OptionsComponent;
@@ -52,15 +53,15 @@ public class StaticInvocationViaThisInspector extends BasePhpInspection {
             @Override
             public void visitPhpMethodReference(@NotNull MethodReference reference) {
                 final String methodName = reference.getName();
-                if (methodName != null && !methodName.startsWith("static")) { /* workaround for WI-33569 */
-                    final PsiElement operator = OpenapiPsiSearchUtil.findResolutionOperator(reference);
-                    if (OpenapiTypesUtil.is(operator, PhpTokenTypes.ARROW)) {
-                        final PsiElement base = reference.getFirstChild();
-                        if (base != null && !(base instanceof FunctionReference)) {
+                if (methodName != null && !methodName.startsWith("static") /* workaround for WI-33569 */) {
+                    final PsiElement base = reference.getFirstChild();
+                    if (base != null && !(base instanceof FunctionReference)) {
+                        final PsiElement operator = OpenapiPsiSearchUtil.findResolutionOperator(reference);
+                        if (OpenapiTypesUtil.is(operator, PhpTokenTypes.ARROW)) {
                             final PsiElement resolved = OpenapiResolveUtil.resolveReference(reference);
                             final Method method       = resolved instanceof Method ? (Method) resolved : null;
                             if (method != null && method.isStatic()) {
-                                if (base.getText().equals("$this")) {
+                                if (base instanceof Variable && ((Variable) base).getName().equals("this")) {
                                     /* $this->static() */
                                     this.handleLateStaticBinding(base, operator, method);
                                 } else {
@@ -80,13 +81,12 @@ public class StaticInvocationViaThisInspector extends BasePhpInspection {
                 if (RESPECT_PHPUNIT_STANDARDS) {
                     final String fqn = method.getFQN();
                     if (fqn.startsWith("\\PHPUnit")) {
-                        final String normalized = fqn.indexOf('_') == -1 ? fqn : fqn.replaceAll("_", "\\");
+                        final String normalized = fqn.indexOf('_') == -1 ? fqn : fqn.replaceAll("_", "\\\\");
                         if (normalized.startsWith("\\PHPUnit\\Framework\\")) {
                             return;
                         }
                     }
                 }
-
                 holder.registerProblem(base, String.format(messageThisUsed, method.getName()), new TheLocalFix(base, operator));
             }
         };
@@ -120,15 +120,13 @@ public class StaticInvocationViaThisInspector extends BasePhpInspection {
 
         @Override
         public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
-            if (!project.isDisposed()) {
-                final PsiElement operator = this.operator.getElement();
-                final PsiElement variable = this.variable.getElement();
-                if (operator != null && variable != null) {
-                    final PsiElement operation = PhpPsiElementFactory.createFromText(project, LeafPsiElement.class, "::");
-                    if (operation != null) {
-                        operator.replace(operation);
-                        variable.replace(PhpPsiElementFactory.createClassReference(project, "self"));
-                    }
+            final PsiElement operator = this.operator.getElement();
+            final PsiElement variable = this.variable.getElement();
+            if (operator != null && variable != null && !project.isDisposed()) {
+                final PsiElement operation = PhpPsiElementFactory.createFromText(project, LeafPsiElement.class, "::");
+                if (operation != null) {
+                    operator.replace(operation);
+                    variable.replace(PhpPsiElementFactory.createClassReference(project, "self"));
                 }
             }
         }
