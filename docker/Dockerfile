@@ -18,7 +18,7 @@ RUN cd root; mkdir -p .PhpStorm${PHPSTORMVERSION}/config .PhpStorm${PHPSTORMVERS
 && wget --quiet --no-verbose https://download.jetbrains.com/webide/PhpStorm-${PHPSTORMDOWNLOAD}.tar.gz \
 && tar -xf PhpStorm-*.tar.gz \
 && cd PhpStorm-*/plugins && ls | grep -Evi "^(css|php)?$" | xargs rm -rf \
-&& wget --quiet --no-verbose https://download.plugins.jetbrains.com/7622/38887/PhpInspectionsEA.jar \
+&& wget --quiet --no-verbose https://plugins.jetbrains.com/files/7622/47726/PhpInspectionsEA.jar \
 && cd - \
 && wget --quiet --no-verbose https://getcomposer.org/composer.phar && mv composer.phar /usr/local/bin/composer && chmod +x /usr/local/bin/composer \
 && composer require --optimize-autoloader kalessil/phpstorm-inspect
